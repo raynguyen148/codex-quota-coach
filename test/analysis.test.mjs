@@ -1,6 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DAY, HOUR, normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, analyze, dailyUsage, sameCycle } from '../lib/analysis.mjs';
+import { DAY, HOUR, normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, analyze, dailyUsage, sameCycle, quickStatus } from '../lib/analysis.mjs';
+
+test('quick risk distinguishes buffer erosion, shortfall and actual exhaustion', () => {
+  const entry = { limitId: 'codex', window: { label: 'Weekly', durationMins: 10080, remainingPercent: 40 },
+    burn: { perDay: 20, confidence: 'medium', source: 'history' },
+    forecast: { safePerDay: 10, reserve: 10, projectedRemaining: 20, projectedLow: 15, exhaustionAt: null } };
+  const a = { entries: [entry], recommendation: { level: 'balanced' } };
+  assert.equal(quickStatus(a).risk, 'ok');
+  assert.equal(quickStatus(a).aboveBudgetPercent, 100);
+  entry.forecast.projectedLow = 5;
+  assert.equal(quickStatus(a).risk, 'low');
+  entry.forecast.exhaustionAt = Date.now() + HOUR;
+  assert.equal(quickStatus(a).risk, 'high');
+  entry.window.remainingPercent = 0;
+  assert.equal(quickStatus(a).risk, 'danger');
+  assert.equal(quickStatus(a, { offline: true }).risk, 'unknown');
+});
+test('risk uses the limiting core window and never treats weak evidence as safe', () => {
+  const good = { limitId: 'codex', window: { label: 'Weekly', remainingPercent: 80 },
+    burn: { perDay: 10, confidence: 'high' }, forecast: { safePerDay: 20, reserve: 10, projectedRemaining: 50, projectedLow: 40 } };
+  const short = { ...structuredClone(good), window: { label: '5-hour', durationMins: 300, remainingPercent: 0 } };
+  const a = { entries: [good, short], recommendation: { level: 'critical' } };
+  assert.equal(quickStatus(a).window, '5-hour');
+  short.limitId = 'spark'; a.recommendation.level = 'balanced';
+  assert.equal(quickStatus(a).risk, 'ok');
+  good.burn.confidence = 'low';
+  assert.equal(quickStatus(a).risk, 'unknown');
+  good.forecast.safePerDay = 0;
+  assert.equal(quickStatus(a).aboveBudgetPercent, null);
+  a.recommendation = { level: 'critical', title: 'Backend restriction' };
+  assert.equal(quickStatus(a).risk, 'danger');
+  assert.equal(quickStatus({ entries: [], recommendation: {} }).risk, 'unknown');
+});
 
 const now = Date.parse('2026-09-15T12:00:00Z');
 const end = (now + 3 * DAY) / 1000;

@@ -8,11 +8,15 @@ import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../cli.mjs';
 import { loadHistory, saveSnapshot } from '../lib/storage.mjs';
 import { JsonLineRpc, VERSION } from '../lib/rpc.mjs';
-import { render } from '../lib/render.mjs';
+import { render, date } from '../lib/render.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const fake = path.join(root, 'test/fake-codex.mjs');
 const temp = await mkdtemp(path.join(os.tmpdir(), 'cq-tests-'));
+test('midnight timestamps use 00 rather than ambiguous 24-hour dates', () => {
+  const midnight = new Date(2027, 0, 2, 0, 43);
+  assert.match(date(midnight.getTime() / 1000), /00:43/);
+});
 function cli(args, env = {}) {
   return spawnSync(process.execPath, [path.join(root, 'codex-quota.mjs'), ...args], {
     encoding: 'utf8', timeout: 10000, env: { ...process.env, CODEX_QUOTA_HOME: temp, CODEX_QUOTA_CODEX_BIN: fake, ...env },
@@ -121,9 +125,40 @@ test('overview/forecast/compact present reset advice and offline suppresses it',
   for (const command of [[], ['forecast']]) {
     const r = cli([...command, '--json', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' });
     assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'consider_manual');
+    const data = JSON.parse(r.stdout);
+    assert.equal(data.recommendation.conditionalOnManualReset, true);
+    assert.notEqual(data.analysis.recommendation.title, data.recommendation.title);
   }
   const line = cli(['--compact', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
   assert.equal(line.trim().split('\n').length, 1); assert.match(line, /Reset: Consider/);
+  assert.match(line, /Check a manual reset/);
+  const forecast = cli(['forecast', '--no-save', '--plain'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
+  assert.match(forecast, /Without reset/);
+  assert.match(forecast, /no manual reset/);
+  assert.match(forecast, /RESET TIMELINE/);
+  assert.match(forecast, /DO NOW/);
+  const overview = JSON.parse(cli(['--json', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout);
+  assert.ok(overview.quickStatus);
+  assert.equal(overview.quickStatus.basis, 'without manual reset');
+  assert.notEqual(overview.quickStatus.risk, 'ok');
   const r = cli(['resets', '--offline', '--json'], { CODEX_QUOTA_CODEX_BIN: '/missing' });
   assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'refresh_required');
+});
+
+test('highlight stays first, wraps at 48 columns, and respects plain and NO_COLOR', () => {
+  const result = { command: 'overview', capturedAt: new Date().toISOString(), normalized: { buckets: [] },
+    quickStatus: { risk: 'high', label: 'HIGH RISK', message: 'Current pace may exhaust quota before the natural reset.',
+      limitId: 'codex', window: 'Weekly', durationMins: 10080, perDay: 20, safePerDay: 10, aboveBudgetPercent: 100, confidence: 'medium', source: 'recency-weighted quota history' },
+    recommendation: { detail: 'Reduce pace for now.' } };
+  const script = `import {render} from './lib/render.mjs';Object.defineProperty(process.stdout,'isTTY',{value:true});Object.defineProperty(process.stdout,'columns',{value:48});console.log(render(${JSON.stringify(result)}, {plain:process.env.CQ_PLAIN === '1'}));`;
+  const env = { ...process.env, TERM: 'xterm-256color' }; delete env.NO_COLOR;
+  const run = extra => spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env: { ...env, ...extra }, encoding: 'utf8' }).stdout;
+  const colored = run({}); assert.match(colored, /\x1b\[1;30;43m HIGH RISK /);
+  for (const output of [run({ NO_COLOR: '1' }), run({ CQ_PLAIN: '1' })]) {
+    assert.doesNotMatch(output, /\x1b/);
+    assert.match(output, /HIGH RISK/); assert.match(output, /PACE  20 pp\/day/);
+    assert.match(output, /100% above budget/); assert.match(output, /DO NOW/);
+    assert.ok(output.indexOf('HIGH RISK') < output.indexOf('PACE'));
+    assert.ok(output.trimEnd().split('\n').every(line => line.length <= 48));
+  }
 });

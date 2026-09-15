@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
 import { VERSION, fetchLive, withClient } from './lib/rpc.mjs';
-import { normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, analyze, dailyUsage } from './lib/analysis.mjs';
+import { normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, analyze, dailyUsage, quickStatus } from './lib/analysis.mjs';
 import { loadHistory, saveSnapshot, historyPath } from './lib/storage.mjs';
 import { render, clean } from './lib/render.mjs';
-import { adviseResets } from './lib/resets.mjs';
+import { adviseResets, unifiedRecommendation } from './lib/resets.mjs';
 
 export const HELP = `Codex Quota Coach v${VERSION} · account read-only
 
@@ -170,6 +170,8 @@ export async function run(options) {
     result.resetAdvice = adviseResets(result.normalized, resetAnalysis, history.snapshots, Date.now(), { offline: !!offline, capturedAt: Date.parse(result.capturedAt) });
   }
   if (offline && result.analysis) result.analysis.recommendation = { level: 'unknown', title: 'Cached forecast — refresh before acting', detail: 'The projections below were evaluated when this snapshot was captured.' };
+  if (result.analysis) result.recommendation = unifiedRecommendation(result.analysis, result.resetAdvice);
+  if (result.analysis) result.quickStatus = quickStatus(result.analysis, { offline: !!offline });
   if (!offline && !options.noSave && ['overview', 'status', 'forecast'].includes(command)) {
     try { await saveSnapshot(snapshot); result.saved = true; }
     catch (err) { result.saved = false; result.warnings.push(`Quota loaded, but snapshot could not be saved: ${err.message}`); }

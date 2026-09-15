@@ -1,6 +1,8 @@
 # Codex Quota Coach
 
-A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.3.0**; Node.js 18+; tested against Codex CLI **0.154.0**.
+A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.4.1**; Node.js 18+; tested against Codex CLI **0.154.0**.
+
+The overview starts with a highlighted status, pace versus no-reset budget, evidence confidence and a **DO NOW** action. Status labels remain visible without color (`--plain`, `NO_COLOR`, pipes). `ON TRACK` preserves the planned buffer; `LOW RISK` flags possible buffer erosion; `HIGH RISK` projects exhaustion before natural reset; `DANGER` means exhausted quota or a reported access restriction. Sparse evidence and offline snapshots show `UNKNOWN`, not a green forecast. These are planning categories, not probabilities. An unused reset credit never lowers the current risk label. `--json` exposes the same `quickStatus`; `--compact` starts with its label and pace.
 
 ## Daily use
 
@@ -77,7 +79,11 @@ Credit IDs deduplicate detail rows; conflicting rows/counts suppress advice. Ava
 
 The forecast horizon is seven days, with a 15-minute margin before expiry and a 15-minute maximum snapshot age for live advice. The 10% low-quota threshold is a **planning policy, not a fetched backend eligibility flag**. Suggested re-check times are informational; nothing runs in the background.
 
-For two or more identified compatible credits with known deadlines within seven days, sufficiently reliable quota history enables an **optimistic usage-count scenario**: assume a full refill to 100%, another possible reset at 10%, and the higher observed pace. The model ignores natural refills and sums window opportunities, deliberately overestimating possible uses. If even that count is smaller than the known credits due, it flags potential unused credits. This is conditional on those assumptions; it neither establishes actual reset effects nor guarantees a number of wasted credits. No prediction is made about future earned credits.
+Identified compatible credits are simulated **sequentially in expiry order**, at average, slower, faster and today-adjusted pace. Each hypothetical manual reset refills all modeled core windows to 100% at the advisory 10% threshold. A skipped/expired credit never refills quota; simultaneous low windows never consume multiple credits. Each later check explicitly depends on earlier hypothetical resets actually happening. Unknown expiry and hidden credits are not assigned dates. Low-confidence scenarios are illustrations, not actionable timing predictions.
+
+`cq resets` and `cq forecast` show this conditional timeline. Planning stops at the first reported natural refresh or seven days: future natural cycles and post-manual-reset dates are not known. The scenario assumes the currently reported natural deadline remains unchanged, so **re-run after every manual or natural reset**. Actual eligibility, credit selection and refill effects must be confirmed in Codex. Potential unused-credit counts refer only to known deadlines before that boundary, under the faster scenario; they are not guarantees or an incentive to create unnecessary work.
+
+The overview and compact view use a unified recommendation when a supported reset check offers an alternative to conservation. `Without reset` budgets and forecast assessments remain unchanged fallback calculations. JSON preserves `analysis.recommendation` as the no-reset baseline, exposes the unified `recommendation`, and includes `resetAdvice.timeline` with scenario-specific times and dependencies. This does not promise that resets sustain the current pace indefinitely.
 
 Reset details now retain their opaque IDs for deduplication. IDs are account metadata, not credentials. Existing history rows are read without migration or rewriting.
 

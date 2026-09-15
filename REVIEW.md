@@ -47,7 +47,22 @@ Reviewed 2026-09-15. The installed v0.1 source matched the project source before
 - Offline reports refer to the saved account and timestamp, and cannot confirm current account identity or permissions.
 - The read-only account contract does not prevent the Codex executable from maintaining its own local runtime database during startup.
 
-## Verification
+## v0.4.1 quick status highlight
+
+- Added an upfront risk badge, emphasized pace, no-reset budget comparison, evidence confidence and immediate action. Overview avoids repeating the long strategy paragraph; forecast retains it.
+- Current risk is independent of unused reset credits. Weak evidence and cached snapshots cannot display a green forecast. Core windows take priority over unrelated model buckets; exhausted windows and backend restrictions remain dangerous.
+- All 78 tests pass, including risk categories, limiting-window selection, reset advice integration, 48-column wrapping, colored badges, plain mode and NO_COLOR. Source live overview verified the high-risk case against the real app-server using `--no-save`.
+
+## v0.4 sequential reset planning
+
+- Replaced repeated per-credit first-depletion dates with expiry-ordered, dependent scenarios. Skipped credits do not refill quota; shared low windows consume only one hypothetical credit. Average/slower/faster/today-adjusted scenarios stop at the first known natural refresh or seven days.
+- Added a unified conditional recommendation while retaining unchanged no-reset quota budgets and assessments. No extra account RPC, model call or account mutation was added.
+- Eligibility and full-refill effects remain unverified assumptions. Credit selection and natural deadlines must be checked again after any real reset. Low-confidence timelines are labeled illustrations and cannot relax the baseline conservation recommendation.
+- Regression coverage includes the Jan 1 example with Jan 2/4/5 expiries at 5/20/50 percentage points per day, skipped credits, shared windows, expiry margin, natural refresh boundaries, uncertain evidence and midnight pace changes.
+- Source live reset read succeeded against the installed Codex app-server on Sep 15. Current history produced low-confidence fallback pace with a discontinuity, so advice correctly requested more evidence instead of promoting the hypothetical timeline into a recommendation.
+- The subsequent installed overview read returned medium-confidence recent pace and correctly presented a conditional reset check alongside the unchanged no-reset budget. Midnight times use 00:xx rather than ambiguous 24:xx. The 75-test suite passes; live checks use `--no-save` and preserve the history checksum.
+
+## Earlier v0.2 verification
 
 - Automated tests exercise synthetic quota/account transitions, sparse/zero burn, backend denial, corrupted history, unsupported methods, process timeout/exit, JSON/plain/compact output and installation in temporary prefixes.
 - Real app-server reads verify current quota, daily token history and rendered forecasts without an API key or any model call by this CLI.

@@ -1,0 +1,8 @@
+{
+  "name": "codex-quota-coach",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test test/*.test.mjs", "start": "node codex-quota.mjs" }
+}

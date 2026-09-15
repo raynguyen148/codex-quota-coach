@@ -3,6 +3,7 @@ import { VERSION, fetchLive, withClient } from './lib/rpc.mjs';
 import { normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, analyze, dailyUsage } from './lib/analysis.mjs';
 import { loadHistory, saveSnapshot, historyPath } from './lib/storage.mjs';
 import { render, clean } from './lib/render.mjs';
+import { adviseResets } from './lib/resets.mjs';
 
 export const HELP = `Codex Quota Coach v${VERSION} · account read-only
 
@@ -12,7 +13,7 @@ Usage: cq [command] [options]
   cq status              Current quota only (fast: no activity request)
   cq forecast            Recent pace, 24h/3d/7d coverage, buffer and projections
   cq usage               Account token activity with a daily bar chart
-  cq resets              Banked reset inventory and reported expiry dates
+  cq resets              Read-only reset advice, today's quota use and expiry risks
   cq history             Local quota snapshots; no network required
   cq doctor              Check CLI, read RPCs and local history
 
@@ -164,6 +165,10 @@ export async function run(options) {
   result.usage = usage;
   if (usage) result.activity = dailyUsage(usage, options.days, Date.parse(result.capturedAt));
   if (['overview', 'forecast'].includes(command)) result.analysis = analyze(result.normalized, history.snapshots, Date.parse(result.capturedAt), options.reserve);
+  if (['overview', 'forecast', 'resets'].includes(command)) {
+    const resetAnalysis = result.analysis || analyze(result.normalized, history.snapshots, Date.parse(result.capturedAt), options.reserve);
+    result.resetAdvice = adviseResets(result.normalized, resetAnalysis, history.snapshots, Date.now(), { offline: !!offline, capturedAt: Date.parse(result.capturedAt) });
+  }
   if (offline && result.analysis) result.analysis.recommendation = { level: 'unknown', title: 'Cached forecast — refresh before acting', detail: 'The projections below were evaluated when this snapshot was captured.' };
   if (!offline && !options.noSave && ['overview', 'status', 'forecast'].includes(command)) {
     try { await saveSnapshot(snapshot); result.saved = true; }

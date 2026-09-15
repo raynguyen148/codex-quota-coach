@@ -1,5 +1,17 @@
 # v0.2 review and upgrade
 
+## v0.3 reset advisor
+
+Added on 2026-09-15 in response to the request for strictly read-only reset recommendations. Advice uses weighted quota history, observed quota deltas within the local day, known credit expiry, and natural-reset timing. `cq resets` now shows the detailed evidence; overview and forecast also include the advisor. The previous inventory-only decision is superseded; the transport's mutation/inference block is unchanged.
+
+Safeguards cover unknown identity/count/expiry/type, partial inventory, duplicate/conflicting IDs, expired or future-granted rows, stale/offline state, workspace restrictions, natural resets, early-day bursts, zero usage, quota corrections, DST, and multiple credits competing for the same demand. The 10% trigger is an advisory policy, not a confirmed backend eligibility flag. Excess-credit numbers are explicitly hypothetical full-refill scenarios, not guaranteed waste or actual redemption counts.
+
+Validation: 65 automated tests passed, including an RPC trace proving `cq resets` sends only initialization and `account/rateLimits/read`, plus unchanged-history checks. A live source-command read returned valid expiry dates and a partial within-day quota measurement; October credit deadlines were subsequently bounded out of the seven-day forecast and covered by regression testing. No reset was consumed. Installation verification uses `--no-save` or the non-saving `resets` command.
+
+The workspace now has a Git repository (baseline `ceb040b`); this feature does not commit or push changes. The original v0.2 review below describes the workspace as it existed at that earlier point.
+
+## Original v0.2 review
+
 Reviewed 2026-09-15. The installed v0.1 source matched the project source before changes. This directory was not a Git repository; no commit, branch or remote operation was performed.
 
 ## Confirmed v0.1 findings, addressed
@@ -13,7 +25,7 @@ Reviewed 2026-09-15. The installed v0.1 source matched the project source before
 | Forecast used one start/end slope with loose reset matching | Hid recent changes; could span quota resets/corrections | Recency-weighted intervals, explicit coverage, discontinuity boundaries |
 | One planning window governed advice; backend restrictions were ignored | Could encourage more use with a depleted short window or blocked account | Respect every window in the selected bucket and backend permission |
 | Unknown burn still produced a projected remaining value | Implied a forecast without supporting measurements | Unknown projection remains null |
-| Reset credits influenced recommendations | Introduced account actions outside this tool's intended role | Inventory only; transport blocks all mutation/inference methods |
+| Reset advice and account actions were not clearly separated | Read-only advice was initially removed together with account actions | v0.2 exposed inventory only; v0.3 restores informational advice while all mutation/inference methods remain blocked |
 | Only the last daily bucket was shown | Hid available daily history and account metrics | Daily chart, summaries, optional task breakdown |
 | Unknown flags were silently accepted and history/doctor ignored JSON | Confusing commands and fragile automation | Validated CLI options and structured output/errors |
 | Process cleanup tested `child.killed` instead of actual exit | Forced cleanup could fail after SIGTERM was sent | Inspect exit/signal state, bounded fallback kill, handle stream errors/timeouts |

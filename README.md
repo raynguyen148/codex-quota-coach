@@ -1,6 +1,6 @@
 # Codex Quota Coach
 
-A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.2.0**; Node.js 18+; tested against Codex CLI **0.154.0**.
+A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.3.0**; Node.js 18+; tested against Codex CLI **0.154.0**.
 
 ## Daily use
 
@@ -12,7 +12,7 @@ A local, dependency-free Node.js CLI for personal Codex quota planning. Version 
 | `cq usage --days 7` | Reported daily token totals and a terminal bar chart |
 | `cq usage --days 30 --json` | Export token activity and summary metrics |
 | `cq usage --thread TASK_ID` | Optional task/model token breakdown, when the backend exposes it |
-| `cq resets` | Banked reset count and reported expiry dates; inventory only |
+| `cq resets` | Read-only reset advice, observed quota today, expiry dates and excess-credit scenarios |
 | `cq history --days 7` | Local quota snapshots; does not contact Codex |
 | `cq --offline` | View the last saved snapshot with an explicit stale-data notice |
 | `cq doctor` | Check the CLI, quota/activity RPCs and history readability |
@@ -51,6 +51,36 @@ Daily dates are backend labels; the protocol does not establish their timezone, 
 
 Historical rates are observations, not promises. Future model choices, reasoning depth, speed modes and long tasks may change consumption. Current-window fallback also assumes the full reported duration preceded the reset; it cannot establish recent pace. Check near the start/end of work sessions and after unusually heavy work. More frequent identical checks do not manufacture confidence.
 
+## Reset coach (v0.3)
+
+`cq` and `cq forecast` now include reset advice. `cq resets` provides the full evidence and per-credit assessment; `cq resets --json` exposes `resetAdvice`. This is on-demand CLI output, not a scheduled notification. Every account operation remains read-only; there is no reset command or consume RPC.
+
+The advisor compares the recent weighted **quota** pace, quota changes actually observed today, each known compatible credit's expiry, and the next natural reset. It uses core `codex` windows identified as 300 or 10080 minutes. It does not assume earned credits apply to other model buckets. The ordinary quota budget still assumes no manual resets.
+
+### Decisions
+
+- **Consider a manual reset:** core quota is at or below the advisory 10% threshold, a compatible credit expires within 72 hours, and waiting for a nearby natural reset would not clearly be preferable. Advice is conditional on having useful work to continue. Eligibility must be checked manually in Codex; a read response does not confirm it.
+- **Watch before expiry:** average pace could reach 10% before both the credit deadline and natural reset. A higher pace or today's acceleration can also produce a watch, explicitly labeled as a sensitivity scenario. It never tells you to reset healthy quota now.
+- **Prefer/reassess after natural reset:** if low windows refresh within six hours and the credit survives that refresh, waiting is preferred. If quota only reaches the threshold after the next natural reset, that crossing is not treated as a valid prediction for this cycle.
+- **Expiry risk:** current demand may not create a useful reset opportunity before expiry. Several expiring credits are compared with shared projected demand rather than assigning the same first opportunity independently to every credit. Do useful work when needed; do not manufacture work or reset healthy quota merely to spend credits.
+- **Unknown/refresh:** unavailable identity, count, expiry, unsupported reset type, inconsistent inventory, stale/offline state or insufficient history cannot justify an actionable expiry recommendation. Workspace/spend restrictions are not presented as problems a reset will solve.
+
+### Today's evidence and uncertainty
+
+Today's quota usage is the sum of monotonic, same-cycle deltas between account/plan-matched snapshots **within the current local calendar day**. Pre-midnight intervals are not divided into invented daily values. The report shows observed hours and coverage; the result is always a partial observation, not an assertion of a complete daily total. A missing comparison is unknown, while a measured zero remains zero. Reset/correction gaps are excluded.
+
+At least three observed hours without a discontinuity or saturation are needed to calculate a within-day pace. Faster usage today influences only the higher scenario until local midnight; historical pace resumes afterward. A quiet morning does not erase the longer-term estimate. Local date boundaries respect timezone/DST. Account token buckets are not converted into quota usage or used to trigger reset advice.
+
+### Multiple credits and expiry safeguards
+
+Credit IDs deduplicate detail rows; conflicting rows/counts suppress advice. Available count stays authoritative. Expired/revoked rows cannot be recommended; missing detail rows retain unknown expiry. Missing IDs disable aggregate counting rather than guessing whether identical-looking rows are distinct credits.
+
+The forecast horizon is seven days, with a 15-minute margin before expiry and a 15-minute maximum snapshot age for live advice. The 10% low-quota threshold is a **planning policy, not a fetched backend eligibility flag**. Suggested re-check times are informational; nothing runs in the background.
+
+For two or more identified compatible credits with known deadlines within seven days, sufficiently reliable quota history enables an **optimistic usage-count scenario**: assume a full refill to 100%, another possible reset at 10%, and the higher observed pace. The model ignores natural refills and sums window opportunities, deliberately overestimating possible uses. If even that count is smaller than the known credits due, it flags potential unused credits. This is conditional on those assumptions; it neither establishes actual reset effects nor guarantees a number of wasted credits. No prediction is made about future earned credits.
+
+Reset details now retain their opaque IDs for deduplication. IDs are account metadata, not credentials. Existing history rows are read without migration or rewriting.
+
 ## Install / update
 
 ```sh
@@ -81,7 +111,7 @@ Environment: `CODEX_QUOTA_HOME` overrides data storage; `CODEX_QUOTA_CODEX_BIN` 
 
 ## Account read-only boundary
 
-The transport permits only initialization and specific read methods. It blocks reset consumption, login/logout, billing changes, email nudges, task creation and model turns. Banked resets are shown only as inventory. The installed Codex process may perform its normal local runtime/auth bookkeeping when it starts; this tool issues no account-mutation RPC.
+The transport permits only initialization and specific read methods. It blocks reset consumption, login/logout, billing changes, email nudges, task creation and model turns. Banked resets are used for informational advice only. The installed Codex process may perform its normal local runtime/auth bookkeeping when it starts; this tool issues no account-mutation RPC.
 
 ## Development
 

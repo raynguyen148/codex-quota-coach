@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { parseArgs } from '../cli.mjs';
 import { loadHistory, saveSnapshot } from '../lib/storage.mjs';
-import { JsonLineRpc } from '../lib/rpc.mjs';
+import { JsonLineRpc, VERSION } from '../lib/rpc.mjs';
 import { render } from '../lib/render.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -29,7 +29,7 @@ test('RPC allowlist blocks account writes and all inference before transport', a
   await assert.rejects(client.request('account/read', {}), /refreshToken/);
 });
 test('help/version and invalid JSON arguments need no Codex access', () => {
-  assert.equal(cli(['--version'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout.trim(), '0.2.0');
+  assert.equal(cli(['--version'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout.trim(), VERSION);
   const r = cli(['--bad', '--json']); assert.equal(r.status, 1); assert.ok(JSON.parse(r.stdout).error);
 });
 test('status skips optional usage RPC and --no-save preserves history', async () => {
@@ -105,4 +105,25 @@ test('all informational commands produce parseable JSON', () => {
     const r = cli([command, '--json', '--no-save']); assert.equal(r.status, 0, `${command}: ${r.stderr}`);
     assert.equal(JSON.parse(r.stdout).command, command);
   }
+});
+
+test('reset advice sends only initialization and a quota read, preserving history', async () => {
+  const log = path.join(temp, 'reset-rpcs.log');
+  const file = path.join(temp, 'history.jsonl');
+  const before = await readFile(file, 'utf8');
+  const r = cli(['resets', '--json'], { CQ_TEST_SCENARIO: 'reset-soon', CQ_TEST_RPC_LOG: log });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'consider_manual');
+  assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n'), ['initialize', 'initialized', 'account/rateLimits/read']);
+  assert.equal(await readFile(file, 'utf8'), before);
+});
+test('overview/forecast/compact present reset advice and offline suppresses it', () => {
+  for (const command of [[], ['forecast']]) {
+    const r = cli([...command, '--json', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' });
+    assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'consider_manual');
+  }
+  const line = cli(['--compact', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
+  assert.equal(line.trim().split('\n').length, 1); assert.match(line, /Reset: Consider/);
+  const r = cli(['resets', '--offline', '--json'], { CODEX_QUOTA_CODEX_BIN: '/missing' });
+  assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'refresh_required');
 });

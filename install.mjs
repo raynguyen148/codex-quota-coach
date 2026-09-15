@@ -25,7 +25,7 @@ try {
   const oldAlias = await optionalStat(alias);
   if (oldAlias && (!oldAlias.isSymbolicLink() || path.resolve(bin, await readlink(alias)) !== wrapper)) throw new Error(`Unrecognized command at ${alias}; refusing to replace it.`);
   await mkdir(path.join(release, 'lib'), { recursive: true });
-  const files = ['codex-quota.mjs', 'cli.mjs', 'lib/rpc.mjs', 'lib/analysis.mjs', 'lib/storage.mjs', 'lib/render.mjs', 'README.md', 'REVIEW.md'];
+  const files = ['codex-quota.mjs', 'cli.mjs', 'lib/rpc.mjs', 'lib/analysis.mjs', 'lib/resets.mjs', 'lib/storage.mjs', 'lib/render.mjs', 'README.md', 'REVIEW.md'];
   for (const file of files) await copyFile(path.join(source, file), path.join(release, file));
   const verify = spawnSync(process.execPath, [path.join(release, 'codex-quota.mjs'), '--version'], { encoding: 'utf8', timeout: 5000 });
   if (verify.status !== 0 || verify.stdout.trim() !== VERSION) throw new Error('Staged installation failed verification; active command was not changed.');

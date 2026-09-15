@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 import { createInterface } from 'node:readline';
+import { appendFileSync } from 'node:fs';
 if (process.argv.includes('--version')) { console.log('codex-test 0.154.0'); process.exit(0); }
 const mode = process.env.CQ_TEST_SCENARIO;
 const quota = { accountId: 'synthetic-account', ordinaryUsageAllowed: true,
   rateLimits: { limitId: 'codex', planType: 'pro', primary: { usedPercent: 30, windowDurationMins: 10080, resetsAt: Math.floor(Date.now() / 1000 + 3 * 86400) } },
   rateLimitResetCredits: { availableCount: 2, credits: null } };
 const usage = { summary: { lifetimeTokens: 123456, currentStreakDays: 2 }, dailyUsageBuckets: [{ startDate: new Date(Date.now() - 86400000).toISOString().slice(0, 10), tokens: 1000 }] };
+if (mode === 'reset-soon') {
+  quota.rateLimits.primary.usedPercent = 95;
+  quota.rateLimitResetCredits = { availableCount: 1, credits: [{ id: 'synthetic-reset', status: 'available', resetType: 'codexRateLimits', expiresAt: Math.floor(Date.now() / 1000 + 7200) }] };
+}
 for await (const line of createInterface({ input: process.stdin })) {
   const request = JSON.parse(line);
+  if (process.env.CQ_TEST_RPC_LOG) appendFileSync(process.env.CQ_TEST_RPC_LOG, request.method + '\n');
   if (!request.id) continue;
   if (mode === 'timeout') continue;
   if (mode === 'exit') process.exit(2);

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { VERSION } from '../lib/rpc.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 test('install and upgrade stage complete modules, keep old releases and leave shell/history alone', async () => {
@@ -17,7 +18,7 @@ test('install and upgrade stage complete modules, keep old releases and leave sh
     const installed = spawnSync(process.execPath, [path.join(root, 'install.mjs')], { encoding: 'utf8', env });
     assert.equal(installed.status, 0, installed.stderr);
     const cq = spawnSync(path.join(prefix, 'bin', 'cq'), ['--version'], { encoding: 'utf8', env });
-    assert.equal(cq.status, 0, cq.stderr); assert.equal(cq.stdout.trim(), '0.2.0');
+    assert.equal(cq.status, 0, cq.stderr); assert.equal(cq.stdout.trim(), VERSION);
   }
   assert.equal((await readdir(path.join(prefix, 'share/codex-quota-coach/releases'))).length, 2);
   assert.equal((await readdir(path.join(prefix, 'share/codex-quota-coach'))).filter(x => x.startsWith('launcher-before-')).length, 1);

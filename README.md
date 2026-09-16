@@ -1,14 +1,16 @@
 # Codex Quota Coach
 
-A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.4.1**; Node.js 18+; tested against Codex CLI **0.154.0**.
+A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.4.2**; Node.js 18+; tested against Codex CLI **0.154.0**.
 
-The overview starts with a highlighted status, pace versus no-reset budget, evidence confidence and a **DO NOW** action. Status labels remain visible without color (`--plain`, `NO_COLOR`, pipes). `ON TRACK` preserves the planned buffer; `LOW RISK` flags possible buffer erosion; `HIGH RISK` projects exhaustion before natural reset; `DANGER` means exhausted quota or a reported access restriction. Sparse evidence and offline snapshots show `UNKNOWN`, not a green forecast. These are planning categories, not probabilities. An unused reset credit never lowers the current risk label. `--json` exposes the same `quickStatus`; `--compact` starts with its label and pace.
+The default `cq` view is a short, scan-first dashboard: highlighted status, core quota and reset time, current pace versus a safe target, then direct advice. Secondary model buckets, token activity, workspace-credit details and long methodology notes stay out of the default view. Use the focused commands for details; `--json` and `--raw` still preserve every returned bucket. Status labels remain visible without color (`--plain`, `NO_COLOR`, pipes).
+
+`ON TRACK` preserves the planned buffer; `LOW RISK` flags possible buffer erosion; `HIGH RISK` projects exhaustion before natural reset; `DANGER` means exhausted quota or a reported access restriction. Sparse evidence and offline snapshots show `UNKNOWN`, not a green forecast. These are planning categories, not probabilities. An unused reset credit never lowers the current risk label.
 
 ## Daily use
 
 | Command | Purpose |
 | --- | --- |
-| `cq` | Quick overview, current quota, suggested budget and coach advice |
+| `cq` | Friendly overview: status, core quota, safe pace and direct advice |
 | `cq status --compact` | One-line current quota; skips account activity |
 | `cq forecast --limit codex` | Recent pace, trend coverage, forecast and sensitivity range |
 | `cq usage --days 7` | Reported daily token totals and a terminal bar chart |
@@ -22,7 +24,7 @@ The overview starts with a highlighted status, pace versus no-reset budget, evid
 `codex-quota` is the full command name; `cq` is the alias. Use `cq --help` for all options.
 
 - `--reserve 10`: retain a 10-percentage-point buffer at reset (default). Use 0–50 with overview/forecast. This is a planning preference, not an account setting.
-- `--limit ID`: focus on an exact returned bucket. Names without a model mapping remain opaque; the tool does not guess which model they represent.
+- `--limit ID`: explicitly inspect one returned bucket. Human-readable summaries otherwise focus on the core `codex` quota. Names without a model mapping remain opaque; the tool does not guess which model they represent.
 - `--json`: structured output for every command, including errors. v0.2 adds `normalized.buckets` and `analysis`; consumers of the v0.1 report JSON must update their field paths. Historical JSONL rows remain compatible.
 - `--raw`: unmodified quota response; `cq usage --raw` gives account activity. No snapshot is saved. Raw responses may contain account/credit identifiers; inspect before sharing.
 - `--no-save`: read live without appending quota history.
@@ -47,9 +49,9 @@ Daily dates are backend labels; the protocol does not establish their timezone, 
 4. Report 24h/3-day/7-day averages only when whole observed intervals cover at least 75% of that period. Never interpolate an unknown multi-day interval into daily measurements. Coverage and low/medium/high heuristic confidence remain visible.
 5. Suggested budget = max(remaining percentage points − buffer, 0) / days until reset. The no-buffer cap is also visible in `forecast`. Short windows show points/hour.
 6. Project only to the next natural reset. An exhaustion date is shown only when the estimated pace runs out before that reset. The pace range uses observed variability and 1-point measurement resolution; it is a sensitivity range, **not a statistical confidence interval**.
-7. Within the main `codex` bucket, the most restrictive window governs the overall advice. Other buckets have their own assessments in `forecast`; use `--limit` to plan specifically for one. Service-reported access/spend restrictions take priority over percentages. Without a main bucket, the most restrictive returned window is used.
+7. Within the main `codex` bucket, the most restrictive window governs the overall advice. Secondary buckets stay hidden in human summaries unless selected with `--limit`; JSON/raw output retains them. Service-reported access/spend restrictions take priority over percentages. Without a main bucket, the most restrictive returned window is used.
 8. Recommend additional work only with sufficient recent evidence, confirmed ordinary-usage permission and headroom even at the higher estimated pace. Sparse/fallback data produces provisional advice. Reset credits never increase the assumed budget.
-9. When the main quota is tight, identify another backend-named model bucket with at least 25% remaining in each returned window, if available. This is an option for suitable tasks, not a claim of equivalent model capability; opaque IDs are never guessed into model names.
+9. Structured analysis can identify another backend-named model bucket with at least 25% remaining in each returned window. It is not promoted in the normal terminal view; quota does not establish equivalent model capability.
 
 Historical rates are observations, not promises. Future model choices, reasoning depth, speed modes and long tasks may change consumption. Current-window fallback also assumes the full reported duration preceded the reset; it cannot establish recent pace. Check near the start/end of work sessions and after unusually heavy work. More frequent identical checks do not manufacture confidence.
 

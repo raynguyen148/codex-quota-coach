@@ -130,8 +130,9 @@ test('overview/forecast/compact present reset advice and offline suppresses it',
     assert.notEqual(data.analysis.recommendation.title, data.recommendation.title);
   }
   const line = cli(['--compact', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
-  assert.equal(line.trim().split('\n').length, 1); assert.match(line, /Reset: Consider/);
-  assert.match(line, /Check a manual reset/);
+  assert.equal(line.trim().split('\n').length, 1);
+  assert.match(line, /Advice: check a manual reset now if needed/);
+  assert.equal((line.match(/Advice:/g) || []).length, 1);
   const forecast = cli(['forecast', '--no-save', '--plain'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
   assert.match(forecast, /Without reset/);
   assert.match(forecast, /no manual reset/);
@@ -145,7 +146,7 @@ test('overview/forecast/compact present reset advice and offline suppresses it',
   assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'refresh_required');
 });
 
-test('highlight stays first, wraps at 48 columns, and respects plain and NO_COLOR', () => {
+test('friendly overview leads with status, target and advice at narrow widths', () => {
   const result = { command: 'overview', capturedAt: new Date().toISOString(), normalized: { buckets: [] },
     quickStatus: { risk: 'high', label: 'HIGH RISK', message: 'Current pace may exhaust quota before the natural reset.',
       limitId: 'codex', window: 'Weekly', durationMins: 10080, perDay: 20, safePerDay: 10, aboveBudgetPercent: 100, confidence: 'medium', source: 'recency-weighted quota history' },
@@ -153,12 +154,35 @@ test('highlight stays first, wraps at 48 columns, and respects plain and NO_COLO
   const script = `import {render} from './lib/render.mjs';Object.defineProperty(process.stdout,'isTTY',{value:true});Object.defineProperty(process.stdout,'columns',{value:48});console.log(render(${JSON.stringify(result)}, {plain:process.env.CQ_PLAIN === '1'}));`;
   const env = { ...process.env, TERM: 'xterm-256color' }; delete env.NO_COLOR;
   const run = extra => spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: root, env: { ...env, ...extra }, encoding: 'utf8' }).stdout;
-  const colored = run({}); assert.match(colored, /\x1b\[1;30;43m HIGH RISK /);
+  const colored = run({});
+  assert.match(colored, /\x1b\[1;30;43m HIGH RISK /);
+  assert.match(colored, /\x1b\[1;33m20 points\/day/);
+  assert.match(colored, /\x1b\[1;36m10 points\/day/);
   for (const output of [run({ NO_COLOR: '1' }), run({ CQ_PLAIN: '1' })]) {
     assert.doesNotMatch(output, /\x1b/);
-    assert.match(output, /HIGH RISK/); assert.match(output, /PACE  20 pp\/day/);
-    assert.match(output, /100% above budget/); assert.match(output, /DO NOW/);
-    assert.ok(output.indexOf('HIGH RISK') < output.indexOf('PACE'));
+    assert.match(output, /HIGH RISK/); assert.match(output, /Current\s+20 points\/day/);
+    assert.match(output, /Safe target\s+10 points\/day/); assert.match(output, /100% over target/);
+    assert.match(output, /ADVICE/); assert.doesNotMatch(output, /DO NOW|Risk basis|Evidence/);
+    assert.ok(output.indexOf('HIGH RISK') < output.indexOf('\nQUOTA\n'));
+    assert.ok(output.indexOf('\nQUOTA\n') < output.indexOf('\nPACE\n'));
+    assert.ok(output.indexOf('PACE') < output.indexOf('ADVICE'));
     assert.ok(output.trimEnd().split('\n').every(line => line.length <= 48));
   }
+});
+
+test('human summaries hide secondary model buckets unless explicitly selected', () => {
+  const result = JSON.parse(cli(['--json', '--no-save']).stdout);
+  const spark = { limitId: 'spark', limitName: 'GPT-5.3-Codex-Spark', planType: 'prolite', windows: [
+    { limitId: 'spark', slot: 'primary', label: '5-hour', durationMins: 300, remainingPercent: 100, resetsAt: Math.floor(Date.now() / 1000 + 3600) },
+  ] };
+  result.normalized.buckets.push(spark);
+  const overview = render(result, { plain: true });
+  assert.match(overview, /QUOTA[\s\S]*PACE[\s\S]*ADVICE/);
+  assert.doesNotMatch(overview, /GPT-5\.3-Codex-Spark|Latest activity|Workspace credit|Included usage|RESET COACH|pp =/);
+  assert.ok(overview.trimEnd().split('\n').length <= 22);
+  const status = render({ ...result, command: 'status' }, { plain: true });
+  assert.doesNotMatch(status, /GPT-5\.3-Codex-Spark/);
+  assert.doesNotMatch(render(result, { compact: true }), /spark/);
+  const selected = render({ ...result, command: 'status', normalized: { ...result.normalized, buckets: [spark] } }, { plain: true, limitId: 'spark' });
+  assert.match(selected, /GPT-5\.3-Codex-Spark/);
 });

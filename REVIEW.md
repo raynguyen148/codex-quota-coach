@@ -1,5 +1,12 @@
 # v0.2 review and upgrade
 
+## v0.4.2 scan-first terminal overview
+
+- Reworked `cq` into a compact status → quota → pace → advice layout with semantic terminal colors and a shorter two-command drill-down footer.
+- The normal text views now focus on the core `codex` bucket. Secondary model buckets such as GPT-5.3-Codex-Spark remain available through an explicit `--limit` and in unchanged JSON/raw data.
+- Removed token activity, workspace-credit details, repeated reset methodology and quota-unit explanations from the default overview. Focused `forecast`, `resets` and `usage` commands retain the deeper evidence.
+- Added regression coverage for the concise hierarchy, narrow terminals, color/plain modes, secondary-bucket hiding and explicit selection.
+
 ## v0.3 reset advisor
 
 Added on 2026-09-15 in response to the request for strictly read-only reset recommendations. Advice uses weighted quota history, observed quota deltas within the local day, known credit expiry, and natural-reset timing. `cq resets` now shows the detailed evidence; overview and forecast also include the advisor. The previous inventory-only decision is superseded; the transport's mutation/inference block is unchanged.

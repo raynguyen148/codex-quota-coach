@@ -9,7 +9,7 @@ export const HELP = `Codex Quota Coach v${VERSION} · account read-only
 
 Usage: cq [command] [options]
 
-  cq                     Daily overview, coach advice, save a local snapshot
+  cq                     Friendly status, core quota, safe pace and advice
   cq status              Current quota only (fast: no activity request)
   cq forecast            Recent pace, 24h/3d/7d coverage, buffer and projections
   cq usage               Account token activity with a daily bar chart

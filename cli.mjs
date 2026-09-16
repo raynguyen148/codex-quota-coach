@@ -4,6 +4,7 @@ import { normalizeRateLimits, normalizeUsage, makeSnapshot, snapshotNormalized, 
 import { loadHistory, saveSnapshot, historyPath } from './lib/storage.mjs';
 import { render, clean } from './lib/render.mjs';
 import { adviseResets, unifiedRecommendation } from './lib/resets.mjs';
+import { ascii, translateError } from './lib/i18n.mjs';
 
 export const HELP = `Codex Quota Coach v${VERSION} · account read-only
 
@@ -27,6 +28,7 @@ Options:
   --raw                  Raw quota response, or raw activity with 'usage'
   --no-save              Do not append a quota snapshot
   --plain                Plain output without color or Unicode
+  --vn                   Vietnamese human-readable output
   --timeout N            Timeout per RPC in seconds (1–60; default 12)
   --thread ID            Optional backend task breakdown ('usage' only)
   --help, -h             Show help
@@ -51,11 +53,58 @@ Environment:
   NO_COLOR               Disable terminal color
 `;
 
+export const HELP_VI = `Codex Quota Coach v${VERSION} · chỉ đọc tài khoản
+
+Cách dùng: cq [command] [options]
+
+  cq                     Trạng thái thân thiện, hạn mức chính, nhịp an toàn và khuyến nghị
+  cq status              Chỉ xem hạn mức hiện tại (nhanh: không đọc hoạt động)
+  cq forecast            Nhịp gần đây, độ phủ 24h/3d/7d, phần đệm và dự báo
+  cq usage               Hoạt động token của tài khoản kèm biểu đồ theo ngày
+  cq resets              Khuyến nghị đặt lại chỉ đọc, mức dùng hôm nay và nguy cơ hết hạn
+  cq history             Ảnh chụp hạn mức cục bộ; không cần mạng
+  cq doctor              Kiểm tra CLI, RPC đọc và lịch sử cục bộ
+
+Tuỳ chọn:
+  --days N               Số ngày theo lịch cho usage/history (1–3650; mặc định 7)
+  --limit ID             Tập trung vào một nhóm hạn mức được trả về
+  --reserve N            Phần trăm hạn mức giữ lại khi đặt lại (0–50; mặc định 10)
+  --compact              Tổng quan hạn mức/trạng thái trên một dòng
+  --offline              Đọc ảnh chụp cục bộ mới nhất, không dùng Codex/mạng
+  --json                 Đầu ra có cấu trúc cho mọi lệnh
+  --raw                  Phản hồi hạn mức thô, hoặc hoạt động thô với 'usage'
+  --no-save              Không thêm ảnh chụp hạn mức
+  --plain                Đầu ra không màu, không Unicode
+  --vn                   Đầu ra tiếng Việt dành cho người đọc
+  --timeout N            Thời gian chờ mỗi RPC tính bằng giây (1–60; mặc định 12)
+  --thread ID            Phân tích tuỳ chọn theo tác vụ ở backend (chỉ 'usage')
+  --help, -h             Hiển thị trợ giúp
+  --version, -v          Hiển thị phiên bản
+
+Ví dụ:
+  cq status --compact
+  cq forecast --reserve 15 --limit codex
+  cq usage --days 30
+  cq usage --thread TASK_ID --json
+  cq history --days 7 --json
+  cq --offline
+
+Việc đọc hạn mức dùng Codex app-server đã đăng nhập (đọc tài khoản qua mạng).
+Không dùng API key, suy luận model, thao tác đặt lại hay server chạy nền.
+Chỉ overview/status/forecast lưu ảnh chụp. --raw không bao giờ lưu.
+Hoạt động token không được quy đổi thành % hạn mức hoặc tiền. Ngày thiếu là chưa rõ.
+
+Môi trường:
+  CODEX_QUOTA_CODEX_BIN   Tệp thực thi Codex (mặc định: codex)
+  CODEX_QUOTA_HOME        Ghi đè thư mục lịch sử cục bộ
+  NO_COLOR                Tắt màu terminal
+`;
+
 export function parseArgs(args) {
   const options = { command: 'overview', days: 7, reserve: 10, timeoutMs: 12000 };
   let commandSet = false;
   const seen = new Set();
-  const flags = { '--json': 'json', '--raw': 'raw', '--no-save': 'noSave', '--offline': 'offline', '--plain': 'plain', '--compact': 'compact', '--help': 'help', '-h': 'help', '--version': 'version', '-v': 'version' };
+  const flags = { '--json': 'json', '--raw': 'raw', '--no-save': 'noSave', '--offline': 'offline', '--plain': 'plain', '--vn': 'vn', '--compact': 'compact', '--help': 'help', '-h': 'help', '--version': 'version', '-v': 'version' };
   const values = new Set(['--days', '--reserve', '--limit', '--thread', '--timeout']);
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -183,12 +232,16 @@ export async function run(options) {
 export async function main(args = process.argv.slice(2)) {
   try {
     const options = parseArgs(args);
-    if (options.help) { console.log(HELP); return; }
+    if (options.help) {
+      const help = options.vn ? HELP_VI : HELP;
+      console.log(options.plain ? ascii(help) : help);
+      return;
+    }
     if (options.version) { console.log(VERSION); return; }
     await run(options);
   } catch (err) {
     if (args.includes('--json')) console.log(JSON.stringify({ version: VERSION, error: { message: clean(err.message) } }, null, 2));
-    else console.error(`codex-quota: ${clean(err.message)}`);
+    else console.error(`codex-quota: ${args.includes('--vn') ? translateError(clean(err.message)) : clean(err.message)}`);
     process.exitCode = process.exitCode || 1;
   }
 }

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { parseArgs } from '../cli.mjs';
+import { HELP, HELP_VI, parseArgs } from '../cli.mjs';
 import { loadHistory, saveSnapshot } from '../lib/storage.mjs';
 import { JsonLineRpc, VERSION } from '../lib/rpc.mjs';
 import { render, date } from '../lib/render.mjs';
@@ -26,6 +26,7 @@ test('arguments reject unknown options, dangerous commands, and incompatible fla
   for (const args of [['reset'], ['--typo'], ['usage', '--days', 'NaN'], ['--days', '7'], ['--json', '--raw'], ['history', '--compact'], ['--reserve', '-1'], ['--thread', 'id'], ['usage', '--thread', 'id', '--offline']]) assert.throws(() => parseArgs(args));
   assert.equal(parseArgs(['forecast', '--reserve', '15']).reserve, 15);
   assert.equal(parseArgs(['usage', '--days', '30']).days, 30);
+  assert.equal(parseArgs(['status', '--vn']).vn, true);
 });
 test('RPC allowlist blocks account writes and all inference before transport', async () => {
   const client = new JsonLineRpc('not-started');
@@ -35,6 +36,55 @@ test('RPC allowlist blocks account writes and all inference before transport', a
 test('help/version and invalid JSON arguments need no Codex access', () => {
   assert.equal(cli(['--version'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout.trim(), VERSION);
   const r = cli(['--bad', '--json']); assert.equal(r.status, 1); assert.ok(JSON.parse(r.stdout).error);
+  assert.match(HELP, /--vn\s+Vietnamese human-readable output/);
+  assert.match(HELP_VI, /--vn\s+Đầu ra tiếng Việt dành cho người đọc/);
+  assert.match(cli(['--help'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout, /Friendly status/);
+  assert.match(cli(['--vn', '--help'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout, /Trạng thái thân thiện/);
+  assert.doesNotMatch(cli(['--vn', '--help', '--plain'], { CODEX_QUOTA_CODEX_BIN: '/missing' }).stdout, /[^\x00-\x7f]/);
+});
+
+test('vn localizes human output while keeping commands and machine output stable', () => {
+  const english = cli(['status', '--plain', '--no-save']);
+  const vietnamese = cli(['status', '--vn', '--no-save']);
+  const vietnamesePlain = cli(['status', '--vn', '--plain', '--no-save']);
+  assert.equal(english.status, 0, english.stderr);
+  assert.equal(vietnamese.status, 0, vietnamese.stderr);
+  assert.equal(vietnamesePlain.status, 0, vietnamesePlain.stderr);
+  assert.match(english.stdout, /QUOTA/);
+  assert.match(vietnamese.stdout, /HẠN MỨC/);
+  assert.doesNotMatch(vietnamese.stdout, /No quota windows|left|More data needed|available/);
+  assert.match(vietnamese.stdout, /còn|Đặt lại/);
+  assert.doesNotMatch(vietnamesePlain.stdout, /[^\x00-\x7f]/);
+
+  const jsonEnglish = JSON.parse(cli(['--json', '--no-save']).stdout);
+  const jsonVietnamese = JSON.parse(cli(['--json', '--vn', '--no-save']).stdout);
+  assert.equal(jsonVietnamese.command, jsonEnglish.command);
+  assert.equal(jsonVietnamese.normalized.buckets[0].windows[0].label, jsonEnglish.normalized.buckets[0].windows[0].label);
+  assert.equal(jsonVietnamese.analysis.recommendation.title, jsonEnglish.analysis.recommendation.title);
+});
+
+test('vn covers every human-readable command and reset advice', () => {
+  for (const args of [[], ['forecast'], ['usage'], ['resets'], ['doctor']]) {
+    const env = args[0] === 'resets' ? { CQ_TEST_SCENARIO: 'reset-soon' } : {};
+    const r = cli([...args, '--vn', '--plain', '--no-save'], env);
+    assert.equal(r.status, 0, `${args[0] || 'overview'}: ${r.stderr}`);
+    assert.doesNotMatch(r.stdout, /More data needed|Without reset|RESET COACH|ACCOUNT ACTIVITY|DIAGNOSTICS|next expires in|valid snapshots|bucket\(s\)/);
+  }
+  const reset = cli(['--vn', '--compact', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' });
+  assert.match(reset.stdout, /Khuyến nghị/);
+  assert.doesNotMatch(reset.stdout, /available|next expires in|Advice:|Check a manual reset|Without a manual reset/);
+});
+
+test('vn translates human errors but --json stays structured', () => {
+  const vn = cli(['--vn', '--bad']);
+  assert.equal(vn.status, 1);
+  assert.match(vn.stderr, /Tùy chọn không được nhận diện/);
+  const en = cli(['--bad']);
+  assert.equal(en.status, 1);
+  assert.match(en.stderr, /Unknown option/);
+  const json = cli(['--vn', '--bad', '--json']);
+  assert.equal(json.status, 1);
+  assert.match(JSON.parse(json.stdout).error.message, /Unknown option/);
 });
 test('status skips optional usage RPC and --no-save preserves history', async () => {
   const r = cli(['status', '--json', '--no-save'], { CQ_TEST_SCENARIO: 'usage-fail' });

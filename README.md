@@ -2,7 +2,7 @@
 
 A local, dependency-free Node.js CLI for personal Codex quota planning. Version **0.4.2**; Node.js 18+; tested against Codex CLI **0.154.0**.
 
-The default `cq` view is a short, scan-first dashboard: highlighted status, core quota and reset time, current pace versus a safe target, then direct advice. Secondary model buckets, token activity, workspace-credit details and long methodology notes stay out of the default view. Use the focused commands for details; `--json` and `--raw` still preserve every returned bucket. Status labels remain visible without color (`--plain`, `NO_COLOR`, pipes).
+The default `cq` view is a short, scan-first dashboard: highlighted status, core quota and reset time, current pace versus a safe target, then direct advice. Secondary model buckets, token activity, workspace-credit details and long methodology notes stay out of the default view. Use the focused commands for details; `--json` and `--raw` still preserve every returned bucket. Human-readable output is English by default; add `--vn` for Vietnamese. `--json` and `--raw` remain machine/backend output regardless of `--vn`. Status labels remain visible without color (`--plain`, `NO_COLOR`, pipes).
 
 `ON TRACK` preserves the planned buffer; `LOW RISK` flags possible buffer erosion; `HIGH RISK` projects exhaustion before natural reset; `DANGER` means exhausted quota or a reported access restriction. Sparse evidence and offline snapshots show `UNKNOWN`, not a green forecast. These are planning categories, not probabilities. An unused reset credit never lowers the current risk label.
 
@@ -11,6 +11,7 @@ The default `cq` view is a short, scan-first dashboard: highlighted status, core
 | Command | Purpose |
 | --- | --- |
 | `cq` | Friendly overview: status, core quota, safe pace and direct advice |
+| `cq --vn` | Vietnamese human-readable overview |
 | `cq status --compact` | One-line current quota; skips account activity |
 | `cq forecast --limit codex` | Recent pace, trend coverage, forecast and sensitivity range |
 | `cq usage --days 7` | Reported daily token totals and a terminal bar chart |
@@ -29,6 +30,7 @@ The default `cq` view is a short, scan-first dashboard: highlighted status, core
 - `--raw`: unmodified quota response; `cq usage --raw` gives account activity. No snapshot is saved. Raw responses may contain account/credit identifiers; inspect before sharing.
 - `--no-save`: read live without appending quota history.
 - `--plain` / `NO_COLOR=1`: plain ASCII / no terminal color. Piped output has no ANSI color.
+- `--vn`: Vietnamese human-readable output. Commands, options and IDs remain unchanged; combine with `--plain` for ASCII Vietnamese without accents.
 - `--timeout 12`: per-request timeout in seconds, 1–60.
 
 ## What data is available?

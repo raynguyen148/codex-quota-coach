@@ -73,6 +73,10 @@ test('vn covers every human-readable command and reset advice', () => {
   const reset = cli(['--vn', '--compact', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' });
   assert.match(reset.stdout, /Khuyến nghị/);
   assert.doesNotMatch(reset.stdout, /available|next expires in|Advice:|Check a manual reset|Without a manual reset/);
+  const resetDetail = cli(['resets', '--vn', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' });
+  assert.match(resetDetail.stdout, /QUYẾT ĐỊNH RESET/);
+  assert.match(resetDetail.stdout, /lượt reset #1/);
+  assert.match(resetDetail.stdout, /Đợt reset tự nhiên tiếp theo/);
 });
 
 test('vn translates human errors but --json stays structured', () => {
@@ -167,7 +171,10 @@ test('reset advice sends only initialization and a quota read, preserving histor
   const before = await readFile(file, 'utf8');
   const r = cli(['resets', '--json'], { CQ_TEST_SCENARIO: 'reset-soon', CQ_TEST_RPC_LOG: log });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(JSON.parse(r.stdout).resetAdvice.status, 'consider_manual');
+  const data = JSON.parse(r.stdout);
+  assert.equal(data.resetAdvice.status, 'consider_manual');
+  assert.equal(data.resetAdvice.plan.action, 'use_now');
+  assert.deepEqual(data.resetAdvice.plan.recommendedCreditIndices, [0]);
   assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n'), ['initialize', 'initialized', 'account/rateLimits/read']);
   assert.equal(await readFile(file, 'utf8'), before);
 });
@@ -184,10 +191,10 @@ test('overview/forecast/compact present reset advice and offline suppresses it',
   assert.match(line, /Advice: check a manual reset now if needed/);
   assert.equal((line.match(/Advice:/g) || []).length, 1);
   const forecast = cli(['forecast', '--no-save', '--plain'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout;
-  assert.match(forecast, /Without reset/);
-  assert.match(forecast, /no manual reset/);
-  assert.match(forecast, /RESET TIMELINE/);
-  assert.match(forecast, /DO NOW/);
+  assert.match(forecast, /CONCLUSION/);
+  assert.match(forecast, /RESET OUTLOOK/);
+  assert.match(forecast, /Use Reset #1/);
+  assert.doesNotMatch(forecast, /RESET TIMELINE|DO NOW|Without reset/);
   const overview = JSON.parse(cli(['--json', '--no-save'], { CQ_TEST_SCENARIO: 'reset-soon' }).stdout);
   assert.ok(overview.quickStatus);
   assert.equal(overview.quickStatus.basis, 'without manual reset');

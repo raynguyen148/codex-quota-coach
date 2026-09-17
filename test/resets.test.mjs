@@ -32,6 +32,9 @@ function snapshot(f, hoursAgo, used, mutate = () => {}) {
 test('low quota plus near expiry gives conditional manual advice, not verified eligibility', () => {
   const r = advise({ remaining: 10, confidence: 'low' });
   assert.equal(r.status, 'consider_manual');
+  assert.equal(r.plan.action, 'use_now');
+  assert.equal(r.plan.recommendedCreditIndex, 0);
+  assert.equal(r.plan.credits[0].action, 'use_now');
   assert.match(r.detail, /If you still need useful work/);
   assert.match(r.eligibility, /Not checked/);
 });
@@ -62,6 +65,8 @@ test('natural reset before expiry does not project depletion across that reset',
   const r = advise({ remaining: 60, rate: 10, resetHours: 24, credits: [credit(72)] });
   assert.equal(r.credits[0].status, 'natural_reset_first');
   assert.equal(r.status, 'wait_natural_reset');
+  assert.equal(r.plan.action, 'wait_natural_reset');
+  assert.equal(r.plan.credits[0].action, 'wait_natural_reset');
 });
 test('planning leaves a 15-minute margin and excludes exact natural-reset crossings', () => {
   const r = advise({ remaining: 30, rate: 20, credits: [credit(24)] });
@@ -214,6 +219,9 @@ test('20 pp/day offers the first credit without pretending later credits are all
   const { jan, r } = january(20);
   assert.equal(r.status, 'watch');
   assert.deepEqual(r.timeline.scenarios.average.steps.map(s => s.checkAt), [jan + .5 * DAY, null, null]);
+  assert.equal(r.plan.action, 'use_when_low');
+  assert.deepEqual(r.plan.recommendedCreditIndices, [0]);
+  assert.deepEqual(r.plan.credits.map(c => c.action), ['use_when_low', 'hold', 'hold']);
   assert.equal(r.expiryPressure.at(-1).potentiallyUnused, 2);
   assert.equal(r.credits[1].status, 'expiry_risk');
 });

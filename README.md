@@ -13,11 +13,11 @@ The default `cq` view is a short, scan-first dashboard: highlighted status, core
 | `cq` | Friendly overview: status, core quota, safe pace and direct advice |
 | `cq --vn` | Vietnamese human-readable overview |
 | `cq status --compact` | One-line current quota; skips account activity |
-| `cq forecast --limit codex` | Recent pace, trend coverage, forecast and sensitivity range |
+| `cq forecast --limit codex` | Decision-first forecast: current pace, safe pace, natural reset and conclusion |
 | `cq usage --days 7` | Reported daily token totals and a terminal bar chart |
 | `cq usage --days 30 --json` | Export token activity and summary metrics |
 | `cq usage --thread TASK_ID` | Optional task/model token breakdown, when the backend exposes it |
-| `cq resets` | Read-only reset advice, observed quota today, expiry dates and excess-credit scenarios |
+| `cq resets` | Decision-first reset plan: which known reset to use, when, or why to hold it |
 | `cq history --days 7` | Local quota snapshots; does not contact Codex |
 | `cq --offline` | View the last saved snapshot with an explicit stale-data notice |
 | `cq doctor` | Check the CLI, quota/activity RPCs and history readability |
@@ -59,7 +59,7 @@ Historical rates are observations, not promises. Future model choices, reasoning
 
 ## Reset coach (v0.3)
 
-`cq` and `cq forecast` now include reset advice. `cq resets` provides the full evidence and per-credit assessment; `cq resets --json` exposes `resetAdvice`. This is on-demand CLI output, not a scheduled notification. Every account operation remains read-only; there is no reset command or consume RPC.
+`cq` and `cq forecast` now include a short reset outlook. `cq resets` provides a decision-first per-credit plan: the next natural reset, known credits sorted by expiry, the recommended credit (when supported by the evidence), and the reason to use, monitor or hold each one. `cq resets --json` still exposes the full `resetAdvice.timeline` evidence plus `resetAdvice.plan`. This is on-demand CLI output, not a scheduled notification. Every account operation remains read-only; there is no reset command or consume RPC.
 
 The advisor compares the recent weighted **quota** pace, quota changes actually observed today, each known compatible credit's expiry, and the next natural reset. It uses core `codex` windows identified as 300 or 10080 minutes. It does not assume earned credits apply to other model buckets. The ordinary quota budget still assumes no manual resets.
 
